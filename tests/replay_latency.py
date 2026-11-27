@@ -44,7 +44,7 @@ def main():
         subprocess.run(["cc", "-O2", *[f"-I{x/'include'}" for x in (pitch, oled, tuner)],
                         str(ROOT / "tests/replay_latency.c"),
                         *[str(pitch / f) for f in ("pitch_detector.c", "pitch_tracker.c", "note_mapper.c")],
-                        str(oled / "oled_graphics.c"), str(tuner / "tuner_screen.c"), "-lm", "-o", str(exe)], check=True)
+                        str(oled / "oled_graphics.c"), str(oled / "oled_text.c"), str(tuner / "tuner_screen.c"), "-lm", "-o", str(exe)], check=True)
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(args.audio), "-ac", "1", "-ar", "16000", "-f", "f32le", str(pcm)], check=True)
         with pcm.open("rb") as stream:
             output = subprocess.check_output([str(exe), str(rendered)], stdin=stream, text=True)

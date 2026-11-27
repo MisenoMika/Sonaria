@@ -23,6 +23,8 @@ typedef struct {
 // Graphics are hardware-independent; RGB565 pixels are stored MSB first.
 void oled_rect(oled_frame_t *frame, unsigned x, unsigned y, unsigned w, unsigned h, uint16_t color);
 void oled_clear(oled_frame_t *frame, uint16_t color);
+void oled_text(oled_frame_t *frame,unsigned x,unsigned y,const char *s,unsigned scale,uint16_t color);
+void oled_centered_text(oled_frame_t *frame,unsigned y,const char *s,unsigned scale,uint16_t color);
 
 // Find the next contiguous range of changed rows at or after start.
 // Pass NULL for previous to force a complete first refresh.
