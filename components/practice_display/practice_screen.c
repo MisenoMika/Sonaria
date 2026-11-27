@@ -83,3 +83,29 @@ void practice_live_screen_render(oled_frame_t *frame, const tuner_result_t *resu
     oled_rect(frame, 0, 0, OLED_WIDTH, 20, BLACK);
     oled_centered_text(frame, 4, "LIVE PITCH", 2, CYAN);
 }
+
+void practice_demo_screen_render(oled_frame_t *frame, const sweep_demo_t *d)
+{
+    char text[32];
+    oled_clear(frame, BLACK);
+    oled_centered_text(frame, 3, "SWEEP DEMO", 2, CYAN);
+    snprintf(text, sizeof text, "%s  %u/%d", sweep_demo_direction_name(d->direction),
+             d->count, SWEEP_NOTE_COUNT);
+    oled_centered_text(frame, 24, text, 1, WHITE);
+    if (d->complete) {
+        snprintf(text, sizeof text, "%.1f%%", sweep_demo_accuracy(d));
+        oled_centered_text(frame, 42, text, 3, d->errors ? YELLOW : GREEN);
+        snprintf(text, sizeof text, "ERRORS %u", d->errors);
+        oled_centered_text(frame, 68, text, 1, WHITE);
+        oled_centered_text(frame, 110, "RESTART TO PLAY", 1, CYAN);
+    } else {
+        practice_note_name(d->count ? d->notes[d->count - 1] : -1, text, sizeof text);
+        oled_centered_text(frame, 42, text, 4, WHITE);
+        oled_centered_text(frame, 110, d->count ? "KEEP PLAYING" : "SWIPE C3-C6", 1, CYAN);
+    }
+    snprintf(text, sizeof text, "%.1f NOTES/S", sweep_demo_rate(d));
+    oled_centered_text(frame, 84, text, 1, WHITE);
+    oled_rect(frame, 5, 98, 118, 5, CAROUSEL_BORDER);
+    if (d->count)
+        oled_rect(frame, 5, 98, 118 * d->count / SWEEP_NOTE_COUNT, 5, CYAN);
+}

@@ -76,6 +76,8 @@ static void publish_view(void)
 {
     if (control.mode == PRACTICE_MODE_LIVE)
         practice_display_publish_live(&control.engine.pitch, control.debug);
+    else if (control.mode == PRACTICE_MODE_DEMO)
+        practice_display_publish_demo(&control.demo, control.debug);
     else
         practice_display_publish(&control.engine.session, control.debug);
 }
@@ -147,8 +149,10 @@ void app_main(void)
                                          &event, &result))
                 continue;
             int64_t compute = esp_timer_get_time() - start;
-            if (control.mode == PRACTICE_MODE_LIVE)
+            if (control.mode != PRACTICE_MODE_SCORE)
                 publish_view();
+            if (control.mode == PRACTICE_MODE_DEMO && control.demo.complete)
+                practice_control_report_demo(&control, emit, NULL);
             if (event)
             {
                 practice_control_report_event(&control, &result, emit, NULL);
@@ -166,8 +170,9 @@ void app_main(void)
                            d->attack_sample, d->rms, d->trough, d->reference, d->attack_pending);
                     last_attack = d->attack_sample;
                 }
-                if (++report_count >= 3 || r->tracking != previous || midi != previous_midi ||
-                    event)
+                bool live = control.mode != PRACTICE_MODE_SCORE;
+                if (++report_count >= (live ? 6 : 3) || r->tracking != previous ||
+                    midi != previous_midi || event)
                 {
                     char note[8], target[8];
                     practice_note_name(midi, note, sizeof note);
@@ -180,9 +185,9 @@ void app_main(void)
                     printf("DEBUG pitch mode=%s frequency=%.2f note=%s target=%s tracking=%s "
                            "candidate=%d "
                            "count=%u/%d confidence=%.3f dBFS=%.1f compute_us=%" PRId64 "\n",
-                           control.mode == PRACTICE_MODE_LIVE ? "live" : "practice",
+                           control.mode == PRACTICE_MODE_DEMO ? "demo" : live ? "live" : "practice",
                            r->pitch.frequency_hz, note, target, pitch_tracking_name(r->tracking),
-                           r->candidate_midi, r->candidate_frames, PITCH_CONFIRM_FRAMES,
+                           r->candidate_midi, r->candidate_frames, live ? PITCH_LIVE_CONFIRM_FRAMES : PITCH_CONFIRM_FRAMES,
                            r->raw.confidence, 20.0f * log10f(fmaxf(r->raw.rms, 1e-12f)), compute);
                     report_count = 0;
                     previous = r->tracking;

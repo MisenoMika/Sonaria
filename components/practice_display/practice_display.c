@@ -13,8 +13,10 @@ typedef struct
     {
         practice_session_t session;
         tuner_result_t pitch;
+        sweep_demo_t demo;
     } view;
     bool live;
+    bool demo;
     bool debug;
     int64_t published;
 } packet_t;
@@ -31,7 +33,9 @@ static void display_task(void *arg)
         if (xQueueReceive(queue, &packet, portMAX_DELAY) != pdTRUE)
             continue;
         int64_t start = esp_timer_get_time();
-        if (packet.live)
+        if (packet.demo)
+            practice_demo_screen_render(oled_frame(), &packet.view.demo);
+        else if (packet.live)
             practice_live_screen_render(oled_frame(), &packet.view.pitch);
         else
             practice_screen_render(oled_frame(), &packet.view.session);
@@ -39,9 +43,9 @@ static void display_task(void *arg)
         unsigned rows = oled_present();
         int64_t done = esp_timer_get_time();
         if (packet.debug && atomic_load(&debug_enabled) &&
-            (!packet.live || done - last_live_log >= 500000))
+            (!(packet.live || packet.demo) || done - last_live_log >= 500000))
         {
-            if (packet.live)
+            if (packet.live || packet.demo)
                 last_live_log = done;
             printf("DEBUG display queue_us=%" PRId64 " render_us=%" PRId64 " spi_us=%" PRId64
                    " rows=%u\n",
@@ -76,5 +80,13 @@ void practice_display_publish_live(const tuner_result_t *result, bool debug)
     atomic_store(&debug_enabled, debug);
     packet_t packet = {
         .view.pitch = *result, .live = true, .debug = debug, .published = esp_timer_get_time()};
+    xQueueOverwrite(queue, &packet);
+}
+
+void practice_display_publish_demo(const sweep_demo_t *demo, bool debug)
+{
+    atomic_store(&debug_enabled, debug);
+    packet_t packet = {
+        .view.demo = *demo, .demo = true, .debug = debug, .published = esp_timer_get_time()};
     xQueueOverwrite(queue, &packet);
 }

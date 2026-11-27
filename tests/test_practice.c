@@ -146,19 +146,87 @@ static void check_live_mode(void)
           ctrl.engine.filled == 0);
     CHECK(command("start") && ctrl.engine.session.position == 0);
 }
+static void check_demo(void)
+{
+    practice_control_init(&ctrl);
+    for (int down = 0; down <= 1; ++down) {
+        CHECK(command(down ? "mode demo down" : "mode demo up"));
+        for (unsigned i = 0; i < SWEEP_NOTE_COUNT; ++i) {
+            int midi = sweep_demo_expected(down ? SWEEP_DOWN : SWEEP_UP, i);
+            if (i == 4) ++midi; // one wrong note must not block the next.
+            live_tone(440 * powf(2, (midi - 69) / 12.f), 180, .05f);
+        }
+        CHECK(ctrl.demo.complete && ctrl.demo.count == 22 && ctrl.demo.errors == 1);
+        CHECK(!practice_control_listening(&ctrl));
+        practice_control_report_demo(&ctrl, collect, NULL);
+        CHECK(strstr(captured, "accuracy=95.5%"));
+        CHECK(strstr(captured, down ?
+            "DEMO ERROR type=WRONG expected_pos=5 actual_pos=5 expected=F5 actual=F#5" :
+            "DEMO ERROR type=WRONG expected_pos=5 actual_pos=5 expected=G3 actual=G#3"));
+        practice_demo_screen_render(&screen, &ctrl.demo);
+        CHECK(count_color(YELLOW) > 0);
+        CHECK(command("restart") && !ctrl.demo.complete && !ctrl.demo.count);
+        captured[0] = 0;
+    }
+    CHECK(command("mode demo"));
+    for (unsigned i = 0; i < 22; ++i) {
+        if (i == 7) continue;
+        int midi = sweep_demo_expected(SWEEP_UP, i);
+        live_tone(440 * powf(2, (midi - 69) / 12.f), 180, .05f);
+    }
+    live_tone(0, 1000, 0);
+    CHECK(ctrl.demo.complete && ctrl.demo.count == 21 && ctrl.demo.errors == 1);
+    CHECK(ctrl.demo.direction == SWEEP_UP);
+    captured[0] = 0;
+    practice_control_report_demo(&ctrl, collect, NULL);
+    CHECK(strstr(captured, "DEMO ERROR type=MISSING expected_pos=8 actual_pos=0 expected=C4 actual=--"));
+    CHECK(command("mode demo"));
+    for (unsigned i = 0; i < 22; ++i) {
+        int midi = sweep_demo_expected(SWEEP_DOWN, i);
+        live_tone(440 * powf(2, (midi - 69) / 12.f), 120, .05f);
+    }
+    CHECK(ctrl.demo.complete && ctrl.demo.count == 22 && ctrl.demo.errors == 0);
+    CHECK(ctrl.demo.direction == SWEEP_DOWN && sweep_demo_accuracy(&ctrl.demo) == 100);
+    CHECK(sweep_demo_rate(&ctrl.demo) > 7 && sweep_demo_rate(&ctrl.demo) < 10);
+    captured[0] = 0;
+    practice_control_report_demo(&ctrl, collect, NULL);
+    CHECK(!strstr(captured, "DEMO ERROR"));
+    practice_demo_screen_render(&screen, &ctrl.demo);
+    CHECK(count_color(GREEN) > 0);
+    CHECK(command("restart"));
+    live_tone(0, 1000, 0);
+    CHECK(!ctrl.demo.complete && !ctrl.demo.count);
+    CHECK(command("stop") && ctrl.demo.complete && ctrl.demo.errors == 22);
+    CHECK(command("mode demo up"));
+    for (unsigned i = 0; i < 21; ++i) {
+        if (i == 2)
+            ctrl.demo.notes[ctrl.demo.count++] = 51; // extra D#3
+        ctrl.demo.notes[ctrl.demo.count++] = sweep_demo_expected(SWEEP_UP, i);
+    }
+    sweep_demo_finish(&ctrl.demo);
+    CHECK(ctrl.demo.errors == 2);
+    captured[0] = 0;
+    practice_control_report_demo(&ctrl, collect, NULL);
+    CHECK(strstr(captured, "DEMO ERROR type=EXTRA expected_pos=0 actual_pos=3 expected=-- actual=D#3"));
+    CHECK(strstr(captured, "DEMO ERROR type=MISSING expected_pos=22 actual_pos=0 expected=C6 actual=--"));
+    CHECK(command("mode live") && practice_control_listening(&ctrl));
+}
+
 int main(void)
 {
     check_carousel();
     check_live_mode();
+    captured[0] = 0;
+    check_demo();
     lines = 0;
     captured[0] = 0;
     practice_control_init(&ctrl);
     CHECK(ctrl.engine.session.state == PRACTICE_READY &&
           strcmp(ctrl.engine.session.score->id, "mary") == 0 && !ctrl.debug);
-    CHECK(!command("help") && lines == 12);
+    CHECK(!command("help") && lines == 13);
     const char *expected_commands[] = {"help", "list",      "select <id>",  "start",
                                        "stop", "restart",   "debug on",     "debug off",
-                                       "mode", "mode live", "mode practice"};
+                                       "mode", "mode live", "mode practice", "mode demo"};
     for (size_t i = 0; i < sizeof expected_commands / sizeof expected_commands[0]; ++i)
         CHECK(strstr(captured, expected_commands[i]));
     CHECK(ctrl.engine.session.state == PRACTICE_READY && !ctrl.debug);

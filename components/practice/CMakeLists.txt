@@ -1,4 +1,4 @@
-idf_component_register(SRCS "score_catalog.c" "practice_session.c" "note_event_detector.c" "practice_engine.c" "practice_control.c"
+idf_component_register(SRCS "score_catalog.c" "practice_session.c" "note_event_detector.c" "practice_engine.c" "practice_control.c" "sweep_demo.c"
                        INCLUDE_DIRS "include" REQUIRES pitch_analysis)
 set(score_dir "${CMAKE_CURRENT_LIST_DIR}/../../scores")
 file(GLOB score_files CONFIGURE_DEPENDS "${score_dir}/*.json")

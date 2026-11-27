@@ -45,7 +45,7 @@ if(Python3_Interpreter_FOUND)
         COMMAND ${Python3_EXECUTABLE} ${SCORE_DIR}/compile_scores.py ${SCORE_DIR} ${GENERATED_SCORES}
         DEPENDS ${SCORE_DIR}/compile_scores.py ${SCORE_FILES} VERBATIM)
     add_library(practice_host STATIC ${GENERATED_SCORES} ${PRACTICE}/practice_session.c ${PRACTICE}/score_catalog.c
-        ${PRACTICE}/note_event_detector.c ${PRACTICE}/practice_engine.c ${PRACTICE}/practice_control.c
+        ${PRACTICE}/note_event_detector.c ${PRACTICE}/practice_engine.c ${PRACTICE}/practice_control.c ${PRACTICE}/sweep_demo.c
         ${PITCH}/pitch_detector.c ${PITCH}/pitch_tracker.c ${PITCH}/note_mapper.c)
     target_include_directories(practice_host PUBLIC ${PRACTICE}/include ${PITCH}/include)
     target_compile_features(practice_host PRIVATE c_std_11)
@@ -54,6 +54,11 @@ if(Python3_Interpreter_FOUND)
     sonaria_test(practice_tests test_practice.c ${PRACTICE_DISPLAY}/practice_screen.c ${TUNER}/tuner_screen.c ${OLED}/oled_graphics.c ${OLED}/oled_text.c)
     target_include_directories(practice_tests PRIVATE ${PRACTICE_DISPLAY}/include)
     target_link_libraries(practice_tests PRIVATE practice_host)
+    add_executable(simulate_live simulate_live.c)
+    target_link_libraries(simulate_live PRIVATE practice_host)
+    add_test(NAME live_speed COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_live_speed.py $<TARGET_FILE:simulate_live> --check)
+    add_executable(simulate_sweep simulate_sweep.c)
+    target_link_libraries(simulate_sweep PRIVATE practice_host)
     add_executable(simulate_practice simulate_practice.c)
     target_link_libraries(simulate_practice PRIVATE practice_host)
     add_test(NAME score_compiler COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_score_compiler.py)
