@@ -8,12 +8,14 @@
 !/tests/
 !/docs/
 !/assets/
+!/scores/
 
 # Audio and score fixtures (keep other local assets out of Git).
 /assets/*
 !/assets/*.mp3
 !/assets/*.wav
 !/assets/*.png
+!/assets/README.md
 
 # Generated files and caches, including those in vendor examples.
 build/

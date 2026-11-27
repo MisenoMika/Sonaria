@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 
 ROOT=Path(__file__).resolve().parents[1]
-from score_fixtures import SCORES, generate
+from score_fixtures import SCORES, SCORE_BPMS, generate
 NAMES=("C","C#","D","D#","E","F","F#","G","G#","A","A#","B")
 
 def name(n):
@@ -27,12 +27,13 @@ def main():
     p.add_argument("--transpose",type=int,default=0,help="Explicit score-to-recording semitone offset")
     p.add_argument("--synthesize",action="store_true",help="Generate a monophonic fixture from the selected score instead of reading an audio file")
     p.add_argument("--mode",choices=("mono","melody"),default="melody")
-    p.add_argument("--bpm",type=float,default=100)
+    p.add_argument("--bpm",type=float)
     p.add_argument("--offset",type=float,default=0)
     p.add_argument("--csv",type=Path,help="Export per-frame results with expected and detected note names")
     p.add_argument("--reference",type=Path,help="Optional CSV with onset_s,duration_s,midi columns (absolute audio timestamps)")
     p.add_argument("--check",action="store_true",help="Fail unless all score events are recognized, stable accuracy 100%%, changed-note P95 latency <=160 ms")
     args=p.parse_args()
+    if args.bpm is None:args.bpm=SCORE_BPMS[args.score]
     if args.bpm<=0: p.error("BPM must be positive")
     pitch=ROOT/"components/pitch_analysis"
     with tempfile.TemporaryDirectory(prefix="sonaria-score-") as tmp:

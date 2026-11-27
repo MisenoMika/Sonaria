@@ -1,0 +1,115 @@
+{
+  "id": "mary",
+  "title": "Mary Had a Little Lamb",
+  "bpm": 100,
+  "time_signature": [
+    4,
+    4
+  ],
+  "notes": [
+    {
+      "note": "E5",
+      "beats": 1
+    },
+    {
+      "note": "D5",
+      "beats": 1
+    },
+    {
+      "note": "C5",
+      "beats": 1
+    },
+    {
+      "note": "D5",
+      "beats": 1
+    },
+    {
+      "note": "E5",
+      "beats": 1
+    },
+    {
+      "note": "E5",
+      "beats": 1
+    },
+    {
+      "note": "E5",
+      "beats": 2
+    },
+    {
+      "note": "D5",
+      "beats": 1
+    },
+    {
+      "note": "D5",
+      "beats": 1
+    },
+    {
+      "note": "D5",
+      "beats": 2
+    },
+    {
+      "note": "E5",
+      "beats": 1
+    },
+    {
+      "note": "G5",
+      "beats": 1
+    },
+    {
+      "note": "G5",
+      "beats": 2
+    },
+    {
+      "note": "E5",
+      "beats": 1
+    },
+    {
+      "note": "D5",
+      "beats": 1
+    },
+    {
+      "note": "C5",
+      "beats": 1
+    },
+    {
+      "note": "D5",
+      "beats": 1
+    },
+    {
+      "note": "E5",
+      "beats": 1
+    },
+    {
+      "note": "E5",
+      "beats": 1
+    },
+    {
+      "note": "E5",
+      "beats": 1
+    },
+    {
+      "note": "E5",
+      "beats": 1
+    },
+    {
+      "note": "D5",
+      "beats": 1
+    },
+    {
+      "note": "D5",
+      "beats": 1
+    },
+    {
+      "note": "E5",
+      "beats": 1
+    },
+    {
+      "note": "D5",
+      "beats": 1
+    },
+    {
+      "note": "C5",
+      "beats": 4
+    }
+  ]
+}
