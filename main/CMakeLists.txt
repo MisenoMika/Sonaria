@@ -1,0 +1,23 @@
+set(SONARIA_TEST "tuner" CACHE STRING "Firmware mode (tuner, pitch, oled or mic)")
+if(SONARIA_TEST STREQUAL "tuner" OR SONARIA_TEST STREQUAL "pitch")
+    set(test_source pitch_main.c)
+elseif(SONARIA_TEST STREQUAL "oled")
+    set(test_source oled_test.c)
+elseif(SONARIA_TEST STREQUAL "mic")
+    set(test_source app_main.c)
+else()
+    message(FATAL_ERROR "SONARIA_TEST must be tuner, pitch, oled or mic")
+endif()
+# Keep dependencies constant during ESP-IDF's early component discovery.
+idf_component_register(SRCS ${test_source}
+                       PRIV_REQUIRES audio_input pitch_analysis oled_display tuner_display esp_timer)
+if(SONARIA_TEST STREQUAL "tuner")
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE SONARIA_ENABLE_OLED=1)
+endif()
+
+set(SONARIA_PITCH_MODE "mono" CACHE STRING "Pitch algorithm (mono or melody)")
+if(SONARIA_PITCH_MODE STREQUAL "melody")
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE SONARIA_MELODY_MODE=1)
+elseif(NOT SONARIA_PITCH_MODE STREQUAL "mono")
+    message(FATAL_ERROR "SONARIA_PITCH_MODE must be mono or melody")
+endif()
