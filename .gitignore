@@ -1,6 +1,30 @@
-*.*
-*
-!*/
-!/docs/*
-!README.md
-!.gitignore
+# Project root: only version project sources, documentation, and fixtures.
+/*
+!/.gitignore
+!/README.md
+!/CMakeLists.txt
+!/main/
+!/components/
+!/tests/
+!/docs/
+!/assets/
+
+# Audio and score fixtures (keep other local assets out of Git).
+/assets/*
+!/assets/*.mp3
+!/assets/*.wav
+!/assets/*.png
+
+# Generated files and caches, including those in vendor examples.
+build/
+__pycache__/
+*.py[cod]
+*.gch
+*.uf2
+*.o
+*.a
+*.elf
+*.bin
+*.log
+*.tmp
+.DS_Store
