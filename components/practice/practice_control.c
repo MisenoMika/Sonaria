@@ -6,9 +6,24 @@
 void practice_control_init(practice_control_t *c)
 {
     c->debug = false;
+    c->mode = PRACTICE_MODE_SCORE;
     const practice_score_t *score = practice_score_find("mary");
     practice_session_select(&c->engine.session, score ? score : &practice_scores[0]);
     practice_engine_reset_audio(&c->engine);
+}
+bool practice_control_listening(const practice_control_t *c)
+{
+    return c->mode == PRACTICE_MODE_LIVE || c->engine.session.state == PRACTICE_ACTIVE;
+}
+bool practice_control_sample(practice_control_t *c, float sample, bool *has_event,
+                             practice_result_t *result)
+{
+    if (c->mode == PRACTICE_MODE_LIVE)
+    {
+        *has_event = false;
+        return practice_engine_live_sample(&c->engine, sample);
+    }
+    return practice_engine_sample(&c->engine, sample, has_event, result);
 }
 static void reply(practice_emit_fn emit, void *ctx, const char *text) { emit(text, ctx); }
 bool practice_control_command(practice_control_t *c, const char *line, practice_emit_fn emit,
@@ -40,6 +55,9 @@ bool practice_control_command(practice_control_t *c, const char *line, practice_
             "Practice commands:",
             "  help           Show this help",
             "  list           List available scores",
+            "  mode           Show active mode",
+            "  mode live      Show live single-note pitch",
+            "  mode practice  Return to score practice",
             "  select <id>    Select score while stopped or ready",
             "  start          Start selected score from the beginning",
             "  stop           Stop current practice",
@@ -60,6 +78,34 @@ bool practice_control_command(practice_control_t *c, const char *line, practice_
                      p->bpm);
             reply(emit, ctx, out);
         }
+        return false;
+    }
+    if (strcmp(cmd, "mode") == 0)
+    {
+        reply(emit, ctx, c->mode == PRACTICE_MODE_LIVE ? "MODE live" : "MODE practice");
+        return false;
+    }
+    if (strcmp(cmd, "mode live") == 0 || strcmp(cmd, "mode practice") == 0)
+    {
+        practice_mode_t next =
+            strcmp(cmd, "mode live") == 0 ? PRACTICE_MODE_LIVE : PRACTICE_MODE_SCORE;
+        if (next == c->mode)
+        {
+            reply(emit, ctx, next == PRACTICE_MODE_LIVE ? "OK mode live" : "OK mode practice");
+            return false;
+        }
+        if (s->state == PRACTICE_ACTIVE)
+            practice_session_stop(s);
+        c->mode = next;
+        practice_engine_reset_audio(&c->engine);
+        reply(emit, ctx, next == PRACTICE_MODE_LIVE ? "OK mode live" : "OK mode practice");
+        return true;
+    }
+    if (c->mode == PRACTICE_MODE_LIVE &&
+        (strncmp(cmd, "select ", 7) == 0 || strcmp(cmd, "start") == 0 ||
+         strcmp(cmd, "restart") == 0 || strcmp(cmd, "stop") == 0))
+    {
+        reply(emit, ctx, "ERROR command switch to mode practice first");
         return false;
     }
     if (strncmp(cmd, "select ", 7) == 0)
@@ -106,8 +152,7 @@ bool practice_control_command(practice_control_t *c, const char *line, practice_
         reply(emit, ctx, c->debug ? "OK debug on" : "OK debug off");
         return true;
     }
-    reply(emit, ctx,
-          "ERROR command unknown; type help for available commands");
+    reply(emit, ctx, "ERROR command unknown; type help for available commands");
     return false;
 }
 void practice_control_report_event(const practice_control_t *c, const practice_result_t *r,

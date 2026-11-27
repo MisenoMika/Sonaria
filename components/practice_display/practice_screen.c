@@ -1,4 +1,5 @@
 #include "practice_display.h"
+#include "tuner_screen.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -73,4 +74,12 @@ void practice_screen_render(oled_frame_t *frame, const practice_session_t *s)
                          : s->feedback == PRACTICE_CORRECT ? "OK"
                                                            : "LISTENING";
     oled_centered_text(frame, 110, status, 2, s->state == PRACTICE_ACTIVE ? color : WHITE);
+}
+
+void practice_live_screen_render(oled_frame_t *frame, const tuner_result_t *result)
+{
+    // Reuse the validated tuner layout and only change the title to distinguish modes.
+    tuner_render(frame, result);
+    oled_rect(frame, 0, 0, OLED_WIDTH, 20, BLACK);
+    oled_centered_text(frame, 4, "LIVE PITCH", 2, CYAN);
 }

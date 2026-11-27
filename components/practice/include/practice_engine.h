@@ -11,6 +11,8 @@ typedef struct
     tuner_result_t pitch;
 } practice_engine_t;
 void practice_engine_reset_audio(practice_engine_t *engine);
+// Process continuous pitch only; do not update the score or articulation state.
+bool practice_engine_live_sample(practice_engine_t *engine, float sample);
 // Returns true at each processed audio hop. has_event is true only if a judged event exists.
 bool practice_engine_sample(practice_engine_t *engine, float sample, bool *has_event,
                             practice_result_t *result);

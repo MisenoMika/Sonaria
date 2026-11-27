@@ -72,6 +72,14 @@ static void serial_task(void *arg)
     }
 }
 
+static void publish_view(void)
+{
+    if (control.mode == PRACTICE_MODE_LIVE)
+        practice_display_publish_live(&control.engine.pitch, control.debug);
+    else
+        practice_display_publish(&control.engine.session, control.debug);
+}
+
 static void serial_start(void)
 {
     commands = xQueueCreate(COMMAND_QUEUE_LENGTH, sizeof(command_t));
@@ -91,7 +99,7 @@ void app_main(void)
     practice_control_init(&control);
     serial_start();
     practice_display_start();
-    practice_display_publish(&control.engine.session, false);
+    publish_view();
     i2s_chan_handle_t rx = init_microphone();
     unsigned warmup = WARMUP_FRAMES, report_count = 0;
     uint64_t last_attack = 0;
@@ -108,7 +116,7 @@ void app_main(void)
                 previous = TRACK_IDLE;
                 previous_midi = -1;
                 last_attack = control.engine.events.attack_sample;
-                practice_display_publish(&control.engine.session, control.debug);
+                publish_view();
             }
         }
         size_t bytes = 0;
@@ -118,6 +126,8 @@ void app_main(void)
             ESP_LOGE("practice", "I2S read failed: %s, bytes=%zu", esp_err_to_name(err), bytes);
             practice_engine_reset_audio(&control.engine);
             last_attack = 0;
+            if (control.mode == PRACTICE_MODE_LIVE)
+                publish_view();
             continue;
         }
         for (size_t i = 0; i < bytes / sizeof(rx_words[0]); ++i)
@@ -127,27 +137,29 @@ void app_main(void)
                 --warmup;
                 continue;
             }
-            if (control.engine.session.state != PRACTICE_ACTIVE)
+            if (!practice_control_listening(&control))
                 continue;
             bool frame_due = control.engine.filled + 1 == PITCH_FRAME_SIZE;
             int64_t start = frame_due ? esp_timer_get_time() : 0;
             practice_result_t result;
             bool event;
-            if (!practice_engine_sample(&control.engine, pcm24(rx_words[i][0]) / (float)PCM24_SCALE,
-                                        &event, &result))
+            if (!practice_control_sample(&control, pcm24(rx_words[i][0]) / (float)PCM24_SCALE,
+                                         &event, &result))
                 continue;
             int64_t compute = esp_timer_get_time() - start;
+            if (control.mode == PRACTICE_MODE_LIVE)
+                publish_view();
             if (event)
             {
                 practice_control_report_event(&control, &result, emit, NULL);
-                practice_display_publish(&control.engine.session, control.debug);
+                publish_view();
             }
             if (control.debug)
             {
                 const tuner_result_t *r = &control.engine.pitch;
                 note_event_detector_t *d = &control.engine.events;
                 int midi = r->pitch.status == PITCH_VALID ? r->note.midi : -1;
-                if (d->attack_sample != last_attack)
+                if (control.mode == PRACTICE_MODE_SCORE && d->attack_sample != last_attack)
                 {
                     printf("DEBUG onset sample=%" PRIu64
                            " rms=%.6f trough=%.6f reference=%.6f pending=%d\n",
@@ -160,11 +172,15 @@ void app_main(void)
                     char note[8], target[8];
                     practice_note_name(midi, note, sizeof note);
                     const practice_session_t *s = &control.engine.session;
-                    practice_note_name(
-                        s->position < s->score->count ? s->score->notes[s->position].midi : -1,
-                        target, sizeof target);
-                    printf("DEBUG pitch frequency=%.2f note=%s target=%s tracking=%s candidate=%d "
+                    practice_note_name(control.mode == PRACTICE_MODE_SCORE &&
+                                               s->position < s->score->count
+                                           ? s->score->notes[s->position].midi
+                                           : -1,
+                                       target, sizeof target);
+                    printf("DEBUG pitch mode=%s frequency=%.2f note=%s target=%s tracking=%s "
+                           "candidate=%d "
                            "count=%u/%d confidence=%.3f dBFS=%.1f compute_us=%" PRId64 "\n",
+                           control.mode == PRACTICE_MODE_LIVE ? "live" : "practice",
                            r->pitch.frequency_hz, note, target, pitch_tracking_name(r->tracking),
                            r->candidate_midi, r->candidate_frames, PITCH_CONFIRM_FRAMES,
                            r->raw.confidence, 20.0f * log10f(fmaxf(r->raw.rms, 1e-12f)), compute);

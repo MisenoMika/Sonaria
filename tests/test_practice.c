@@ -36,6 +36,7 @@ static void reset(void)
     CHECK(practice_session_start(&ctrl.engine.session, false));
     practice_engine_reset_audio(&ctrl.engine);
     ctrl.debug = false;
+    ctrl.mode = PRACTICE_MODE_SCORE;
     lines = 0;
 }
 static void event(int midi, float cents)
@@ -55,44 +56,45 @@ static unsigned count_color(uint16_t color)
     return count;
 }
 // Compare each slot to an independently rendered expected glyph, including missing neighbors.
-static void check_target_slot(unsigned first, unsigned last_x, unsigned center,
-                              unsigned y, unsigned scale, const char *label, uint16_t color)
+static void check_target_slot(unsigned first, unsigned last_x, unsigned center, unsigned y,
+                              unsigned scale, const char *label, uint16_t color)
 {
     static oled_frame_t expected;
     oled_clear(&expected, BLACK);
-    unsigned width=(unsigned)strlen(label)*6*scale-scale;
-    oled_text(&expected,center-width/2,y,label,scale,color);
-    for(unsigned row=42;row<64;++row)
-        for(unsigned x=first;x<=last_x;++x)
-            CHECK(screen.pixels[row][x][0]==expected.pixels[row][x][0] &&
-                  screen.pixels[row][x][1]==expected.pixels[row][x][1]);
+    unsigned width = (unsigned)strlen(label) * 6 * scale - scale;
+    oled_text(&expected, center - width / 2, y, label, scale, color);
+    for (unsigned row = 42; row < 64; ++row)
+        for (unsigned x = first; x <= last_x; ++x)
+            CHECK(screen.pixels[row][x][0] == expected.pixels[row][x][0] &&
+                  screen.pixels[row][x][1] == expected.pixels[row][x][1]);
 }
 static void check_carousel(void)
 {
-    static const practice_score_note_t carousel_notes[]={{60,96,1,0},{63,96,1,96},{67,96,1,192}};
-    static const practice_score_t carousel_score={"wheel","Wheel",100,4,4,carousel_notes,3};
+    static const practice_score_note_t carousel_notes[] = {
+        {60, 96, 1, 0}, {63, 96, 1, 96}, {67, 96, 1, 192}};
+    static const practice_score_t carousel_score = {"wheel", "Wheel", 100, 4, 4, carousel_notes, 3};
     practice_session_t session;
-    practice_session_select(&session,&carousel_score);
-    CHECK(practice_session_start(&session,false));
+    practice_session_select(&session, &carousel_score);
+    CHECK(practice_session_start(&session, false));
     practice_result_t result;
-    practice_screen_render(&screen,&session);
-    check_target_slot(0,36,19,46,2,"--",0x6B4D);
-    check_target_slot(38,89,64,42,3,"C4",CYAN);
-    check_target_slot(91,127,109,46,2,"D#4",0x6B4D);
-    CHECK(practice_session_event(&session,(practice_note_event_t){.midi=60},&result));
-    practice_screen_render(&screen,&session);
-    check_target_slot(0,36,19,46,2,"C4",0x6B4D);
-    check_target_slot(38,89,64,42,3,"D#4",CYAN);
-    check_target_slot(91,127,109,46,2,"G4",0x6B4D);
-    CHECK(practice_session_event(&session,(practice_note_event_t){.midi=62},&result));
-    practice_screen_render(&screen,&session);
-    check_target_slot(38,89,64,42,3,"D#4",CYAN);
-    CHECK(count_color(RED)>0);
-    CHECK(practice_session_event(&session,(practice_note_event_t){.midi=63},&result));
-    practice_screen_render(&screen,&session);
-    check_target_slot(0,36,19,46,2,"D#4",0x6B4D);
-    check_target_slot(38,89,64,42,3,"G4",CYAN);
-    check_target_slot(91,127,109,46,2,"--",0x6B4D);
+    practice_screen_render(&screen, &session);
+    check_target_slot(0, 36, 19, 46, 2, "--", 0x6B4D);
+    check_target_slot(38, 89, 64, 42, 3, "C4", CYAN);
+    check_target_slot(91, 127, 109, 46, 2, "D#4", 0x6B4D);
+    CHECK(practice_session_event(&session, (practice_note_event_t){.midi = 60}, &result));
+    practice_screen_render(&screen, &session);
+    check_target_slot(0, 36, 19, 46, 2, "C4", 0x6B4D);
+    check_target_slot(38, 89, 64, 42, 3, "D#4", CYAN);
+    check_target_slot(91, 127, 109, 46, 2, "G4", 0x6B4D);
+    CHECK(practice_session_event(&session, (practice_note_event_t){.midi = 62}, &result));
+    practice_screen_render(&screen, &session);
+    check_target_slot(38, 89, 64, 42, 3, "D#4", CYAN);
+    CHECK(count_color(RED) > 0);
+    CHECK(practice_session_event(&session, (practice_note_event_t){.midi = 63}, &result));
+    practice_screen_render(&screen, &session);
+    check_target_slot(0, 36, 19, 46, 2, "D#4", 0x6B4D);
+    check_target_slot(38, 89, 64, 42, 3, "G4", CYAN);
+    check_target_slot(91, 127, 109, 46, 2, "--", 0x6B4D);
 }
 static void tone(float frequency, unsigned ms, float gain)
 {
@@ -106,14 +108,57 @@ static void tone(float frequency, unsigned ms, float gain)
             practice_control_report_event(&ctrl, &result, collect, NULL);
     }
 }
+static void live_tone(float hz, unsigned ms, float gain)
+{
+    for (unsigned i = 0; i < ms * 16; ++i)
+    {
+        bool has_event = true;
+        practice_result_t result;
+        practice_control_sample(&ctrl, gain * sinf(6.28318530718f * hz * i / 16000), &has_event,
+                                &result);
+        CHECK(!has_event);
+    }
+}
+static void check_live_mode(void)
+{
+    reset();
+    event(60, 0);
+    CHECK(ctrl.engine.session.position == 1);
+    CHECK(command("mode live") && ctrl.mode == PRACTICE_MODE_LIVE);
+    CHECK(ctrl.engine.session.state == PRACTICE_STOPPED && ctrl.engine.session.position == 1);
+    CHECK(practice_control_listening(&ctrl));
+    CHECK(!command("mode") && strcmp(last, "MODE live") == 0);
+    CHECK(!command("start") && strstr(last, "mode practice"));
+    unsigned before = lines;
+    live_tone(440, 600, .05f);
+    CHECK(ctrl.engine.pitch.tracking == TRACK_CONFIRMED && ctrl.engine.pitch.note.midi == 69);
+    CHECK(ctrl.engine.session.position == 1 && ctrl.engine.session.errors == 0 && lines == before);
+    practice_live_screen_render(&screen, &ctrl.engine.pitch);
+    CHECK(count_color(GREEN) > 0);
+    live_tone(880, 600, .05f);
+    CHECK(ctrl.engine.pitch.note.midi == 81);
+    live_tone(0, 500, 0);
+    CHECK(ctrl.engine.pitch.pitch.status == PITCH_SILENCE);
+    practice_live_screen_render(&screen, &ctrl.engine.pitch);
+    CHECK(count_color(GREEN) == 0);
+    CHECK(command("mode practice") && ctrl.mode == PRACTICE_MODE_SCORE);
+    CHECK(!practice_control_listening(&ctrl) && ctrl.engine.session.position == 1 &&
+          ctrl.engine.filled == 0);
+    CHECK(command("start") && ctrl.engine.session.position == 0);
+}
 int main(void)
 {
     check_carousel();
+    check_live_mode();
+    lines = 0;
+    captured[0] = 0;
     practice_control_init(&ctrl);
     CHECK(ctrl.engine.session.state == PRACTICE_READY &&
           strcmp(ctrl.engine.session.score->id, "mary") == 0 && !ctrl.debug);
-    CHECK(!command("help") && lines == 9);
-    const char *expected_commands[] = {"help", "list", "select <id>", "start", "stop", "restart", "debug on", "debug off"};
+    CHECK(!command("help") && lines == 12);
+    const char *expected_commands[] = {"help", "list",      "select <id>",  "start",
+                                       "stop", "restart",   "debug on",     "debug off",
+                                       "mode", "mode live", "mode practice"};
     for (size_t i = 0; i < sizeof expected_commands / sizeof expected_commands[0]; ++i)
         CHECK(strstr(captured, expected_commands[i]));
     CHECK(ctrl.engine.session.state == PRACTICE_READY && !ctrl.debug);
