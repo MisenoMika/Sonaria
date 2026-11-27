@@ -4,6 +4,10 @@
 #include "note_mapper.h"
 
 #define PITCH_CONFIRM_FRAMES 4
+#define PITCH_LIVE_HOP_SIZE 256
+#define PITCH_LIVE_CONFIRM_FRAMES 2
+#define PITCH_LIVE_HOLD_MS 48
+#define PITCH_LIVE_HOP_MS (PITCH_LIVE_HOP_SIZE * 1000 / PITCH_SAMPLE_RATE)
 #define PITCH_CONFIRM_CONFIDENCE 0.90f
 #define PITCH_MAINTAIN_CONFIDENCE 0.85f
 #define PITCH_HOLD_MS 128
@@ -45,5 +49,6 @@ void pitch_tracker_reset(pitch_tracker_t *tracker);
 tuner_result_t pitch_tracker_update(pitch_tracker_t *tracker, pitch_result_t raw);
 tuner_result_t pitch_tracker_update_with_confirmation(pitch_tracker_t *tracker, pitch_result_t raw, unsigned confirm_frames);
 tuner_result_t pitch_track(pitch_tracker_t *tracker, const float samples[PITCH_FRAME_SIZE]);
+tuner_result_t pitch_track_live(pitch_tracker_t *tracker, const float samples[PITCH_FRAME_SIZE]);
 const char *pitch_tracking_name(pitch_tracking_state_t state);
 #endif

@@ -2,6 +2,7 @@
 #include <string.h>
 
 _Static_assert(PITCH_HOLD_MS % PITCH_HOP_MS == 0, "Hold must align to audio hops");
+_Static_assert(PITCH_LIVE_HOLD_MS % PITCH_LIVE_HOP_MS == 0, "Live hold must align to audio hops");
 
 void pitch_tracker_reset(pitch_tracker_t *tracker)
 {
@@ -56,7 +57,7 @@ static tuner_result_t output(const pitch_tracker_t *tracker, pitch_result_t raw,
     return result;
 }
 
-tuner_result_t pitch_tracker_update_with_confirmation(pitch_tracker_t *tracker, pitch_result_t raw, unsigned confirm_frames)
+static tuner_result_t update(pitch_tracker_t *tracker, pitch_result_t raw, unsigned confirm_frames, unsigned hold_frames)
 {
     note_result_t note = {0};
     const bool valid = raw.status == PITCH_VALID && frequency_to_note(raw.frequency_hz, &note);
@@ -88,14 +89,19 @@ tuner_result_t pitch_tracker_update_with_confirmation(pitch_tracker_t *tracker, 
     }
 
     if (tracker->has_confirmed) {
-        // First lost frame starts the hold clock; the fifth is 128 ms later.
-        if (tracker->lost_frames++ < PITCH_HOLD_MS / PITCH_HOP_MS)
+        // First lost frame starts the hold clock.
+        if (tracker->lost_frames++ < hold_frames)
             return output(tracker, raw, TRACK_HOLD);
         tracker->has_confirmed = false;
         tracker->confirmed_count = 0;
         tracker->lost_frames = 0;
     }
     return output(tracker, raw, tracker->candidate_frames ? TRACK_PENDING : TRACK_IDLE);
+}
+
+tuner_result_t pitch_tracker_update_with_confirmation(pitch_tracker_t *tracker, pitch_result_t raw, unsigned confirm_frames)
+{
+    return update(tracker, raw, confirm_frames, PITCH_HOLD_MS / PITCH_HOP_MS);
 }
 
 tuner_result_t pitch_tracker_update(pitch_tracker_t *tracker, pitch_result_t raw)
@@ -106,6 +112,12 @@ tuner_result_t pitch_tracker_update(pitch_tracker_t *tracker, pitch_result_t raw
 tuner_result_t pitch_track(pitch_tracker_t *tracker, const float samples[PITCH_FRAME_SIZE])
 {
     return pitch_tracker_update(tracker, pitch_detect(&tracker->detector, samples));
+}
+
+tuner_result_t pitch_track_live(pitch_tracker_t *tracker, const float samples[PITCH_FRAME_SIZE])
+{
+    return update(tracker, pitch_detect(&tracker->detector, samples),
+                  PITCH_LIVE_CONFIRM_FRAMES, PITCH_LIVE_HOLD_MS / PITCH_LIVE_HOP_MS);
 }
 
 const char *pitch_tracking_name(pitch_tracking_state_t state)

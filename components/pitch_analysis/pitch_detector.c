@@ -4,7 +4,6 @@
 #define YIN_WINDOW 512
 #define YIN_THRESHOLD 0.15f
 #define MIN_LAG 8
-#define MAX_LAG 200
 #define YIN_START (PITCH_FRAME_SIZE-YIN_WINDOW-PITCH_MAX_LAG)
 _Static_assert(YIN_START>=0, "YIN window must fit in one frame");
 
@@ -32,7 +31,8 @@ pitch_result_t pitch_detect(pitch_detector_t *detector, const float samples[PITC
     detector->difference[0] = 0.0f;
     detector->normalized[0] = 1.0f;
     float running_sum = 0.0f;
-    for (int lag = 1; lag <= PITCH_MAX_LAG; ++lag) {
+    for (int next = 1; next <= PITCH_MAX_LAG; ++next) {
+        int lag = next;
         float sum = 0.0f;
         for (int i = YIN_START; i < YIN_START + YIN_WINDOW; ++i) {
             float delta = samples[i] - samples[i + lag];
@@ -41,11 +41,11 @@ pitch_result_t pitch_detect(pitch_detector_t *detector, const float samples[PITC
         detector->difference[lag] = sum;
         running_sum += sum;
         detector->normalized[lag] = running_sum > 0.0f ? sum * lag / running_sum : 1.0f;
-    }
 
-    // Find the first convincing trough, even if it lies above the supported
-    // frequency range. Reject that case instead of selecting a later multiple.
-    for (int lag = 2; lag <= MAX_LAG; ++lag) {
+        // Once the right neighbor exists, evaluate the first convincing trough.
+        // Later lags cannot alter this decision.
+        if (next < 3) continue;
+        lag = next - 1;
         const float *cmnd = detector->normalized;
         if (cmnd[lag] >= YIN_THRESHOLD || cmnd[lag] > cmnd[lag - 1] || cmnd[lag] > cmnd[lag + 1]) continue;
         if (lag < MIN_LAG) return result;
